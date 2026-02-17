@@ -5,16 +5,26 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "pawell67"
+            "name": "Pawel Wankiewicz"
         }
     ],
     "require": {
         "php": "^8.1",
         "illuminate/support": "^10.0|^11.0|^12.0"
     },
+    "require-dev": {
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
     "autoload": {
         "psr-4": {
             "Pawell67\\RedisExplorer\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pawell67\\RedisExplorer\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -23,5 +33,9 @@
                 "Pawell67\\RedisExplorer\\RedisExplorerServiceProvider"
             ]
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "fix": "vendor/bin/pint"
     }
 }

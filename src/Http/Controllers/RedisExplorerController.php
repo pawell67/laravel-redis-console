@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pawell67\RedisExplorer\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Redis;
+use Exception;
 
 class RedisExplorerController extends Controller
 {
@@ -13,13 +16,15 @@ class RedisExplorerController extends Controller
     {
         return view('redis-explorer::index', [
             'connections' => array_keys(config('database.redis', [])),
+            'maxDb' => config('redis-explorer.max_db', 15),
         ]);
     }
 
     public function execute(Request $request): JsonResponse
     {
-        $raw = trim($request->input('command', ''));
+        $raw = trim((string) $request->input('command', ''));
         $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $db = $request->input('db');
 
         if (empty($raw)) {
             return response()->json(['error' => 'No command provided.'], 400);
@@ -35,7 +40,8 @@ class RedisExplorerController extends Controller
         $isDangerous = in_array($cmd, config('redis-explorer.dangerous_commands', []));
 
         try {
-            $result = Redis::connection($connection)->command($cmd, $parts);
+            $redis = $this->getRedis($connection, $db);
+            $result = $redis->command($cmd, $parts);
 
             return response()->json([
                 'command' => $raw,
@@ -43,7 +49,7 @@ class RedisExplorerController extends Controller
                 'type' => gettype($result),
                 'dangerous' => $isDangerous,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'command' => $raw,
                 'error' => $e->getMessage(),
@@ -54,14 +60,16 @@ class RedisExplorerController extends Controller
     public function info(Request $request): JsonResponse
     {
         $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $db = $request->input('db');
 
         try {
-            $info = Redis::connection($connection)->command('INFO');
+            $redis = $this->getRedis($connection, $db);
+            $info = $redis->command('INFO');
 
             return response()->json([
                 'info' => $info,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -69,12 +77,14 @@ class RedisExplorerController extends Controller
     public function keys(Request $request): JsonResponse
     {
         $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $db = $request->input('db');
         $pattern = $request->input('pattern', '*');
         $cursor = $request->input('cursor', '0');
         $count = min((int) $request->input('count', 100), 500);
 
         try {
-            $result = Redis::connection($connection)->command('SCAN', [$cursor, 'MATCH', $pattern, 'COUNT', $count]);
+            $redis = $this->getRedis($connection, $db);
+            $result = $redis->client()->rawCommand('SCAN', $cursor, 'MATCH', $pattern, 'COUNT', $count);
 
             $nextCursor = $result[0] ?? '0';
             $keys = $result[1] ?? [];
@@ -82,8 +92,8 @@ class RedisExplorerController extends Controller
             // Get types for each key
             $keysWithTypes = [];
             foreach ($keys as $key) {
-                $type = Redis::connection($connection)->command('TYPE', [$key]);
-                $ttl = Redis::connection($connection)->command('TTL', [$key]);
+                $type = $redis->client()->rawCommand('TYPE', $key);
+                $ttl = $redis->client()->rawCommand('TTL', $key);
                 $keysWithTypes[] = [
                     'key' => $key,
                     'type' => $type,
@@ -96,9 +106,24 @@ class RedisExplorerController extends Controller
                 'keys' => $keysWithTypes,
                 'done' => $nextCursor === '0' || $nextCursor === 0,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Get a Redis connection, optionally selecting a specific DB index.
+     */
+    protected function getRedis(string $connection, ?string $db = null)
+    {
+        $redis = Redis::connection($connection);
+
+        if ($db !== null && $db !== '') {
+            $dbIndex = max(0, min((int) $db, config('redis-explorer.max_db', 15)));
+            $redis->command('SELECT', [$dbIndex]);
+        }
+
+        return $redis;
     }
 
     protected function parseCommand(string $raw): array
@@ -148,7 +173,7 @@ class RedisExplorerController extends Controller
             return $result ? '(integer) 1' : '(integer) 0';
         }
 
-        if (is_null($result)) {
+        if (null === $result) {
             return '(nil)';
         }
 

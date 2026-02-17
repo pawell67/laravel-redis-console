@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
 
     /*
@@ -34,6 +36,17 @@ return [
     |
     */
     'connection' => env('REDIS_EXPLORER_CONNECTION', 'default'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Max Database Index
+    |--------------------------------------------------------------------------
+    |
+    | The maximum Redis database index available in the DB selector.
+    | Standard Redis supports 0-15 (16 databases).
+    |
+    */
+    'max_db' => (int) env('REDIS_EXPLORER_MAX_DB', 15),
 
     /*
     |--------------------------------------------------------------------------

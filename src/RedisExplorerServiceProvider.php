@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pawell67\RedisExplorer;
 
 use Illuminate\Support\Facades\Route;

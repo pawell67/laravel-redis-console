@@ -96,6 +96,13 @@
             background: var(--success);
             box-shadow: 0 0 6px var(--success);
         }
+        .header-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
 
         /* ---- SIDEBAR ---- */
         .sidebar {
@@ -466,6 +473,7 @@
                 <span class="header-badge">v1.0</span>
             </div>
             <div class="header-actions">
+                <label class="header-label">Connection</label>
                 <select class="conn-select" id="connection">
                     @foreach($connections as $conn)
                         @if(!in_array($conn, ['client', 'options']))
@@ -474,6 +482,12 @@
                             </option>
                         @endif
                     @endforeach
+                </select>
+                <label class="header-label">DB</label>
+                <select class="conn-select" id="db-index">
+                    @for($i = 0; $i <= $maxDb; $i++)
+                        <option value="{{ $i }}">{{ $i }}</option>
+                    @endfor
                 </select>
                 <div class="status-dot" id="status-dot" title="Connected"></div>
             </div>
@@ -606,6 +620,7 @@
 
         try {
             const conn = document.getElementById('connection').value;
+            const db = document.getElementById('db-index').value;
             const resp = await fetch(`${baseUrl}/execute`, {
                 method: 'POST',
                 headers: {
@@ -613,7 +628,7 @@
                     'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ command: cmd, connection: conn }),
+                body: JSON.stringify({ command: cmd, connection: conn, db: db }),
             });
 
             const data = await resp.json();
@@ -671,9 +686,10 @@
     async function scanMore() {
         const pattern = document.getElementById('key-pattern').value || '*';
         const conn = document.getElementById('connection').value;
+        const db = document.getElementById('db-index').value;
 
         try {
-            const resp = await fetch(`${baseUrl}/keys?pattern=${encodeURIComponent(pattern)}&cursor=${scanCursor}&connection=${conn}&count=100`, {
+            const resp = await fetch(`${baseUrl}/keys?pattern=${encodeURIComponent(pattern)}&cursor=${scanCursor}&connection=${conn}&db=${db}&count=100`, {
                 headers: { 'Accept': 'application/json' },
             });
             const data = await resp.json();
@@ -728,10 +744,11 @@
 
     async function loadInfo() {
         const conn = document.getElementById('connection').value;
+        const db = document.getElementById('db-index').value;
         const grid = document.getElementById('info-grid');
 
         try {
-            const resp = await fetch(`${baseUrl}/info?connection=${conn}`, {
+            const resp = await fetch(`${baseUrl}/info?connection=${conn}&db=${db}`, {
                 headers: { 'Accept': 'application/json' },
             });
             const data = await resp.json();
