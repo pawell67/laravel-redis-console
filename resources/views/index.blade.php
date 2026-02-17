@@ -209,9 +209,7 @@
         .key-type.stream  { background: #173b3b; color: #2dd4bf; }
         .key-type.none    { background: #2a2a2a; color: #888; }
         .key-name {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            word-break: break-all;
             color: var(--text-secondary);
         }
         .key-ttl {
@@ -730,7 +728,7 @@
 
     function inspectKey(key) {
         input.value = `GET ${key}`;
-        input.focus();
+        runCommand();
     }
 
     // ---- Tabs ----
