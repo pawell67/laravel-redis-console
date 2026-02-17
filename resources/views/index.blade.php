@@ -727,8 +727,11 @@
     }
 
     function inspectKey(key) {
-        input.value = `GET ${key}`;
+        const cmd = `GET ${key}`;
+        input.value = cmd;
         runCommand();
+        input.value = cmd;
+        input.focus();
     }
 
     // ---- Tabs ----
