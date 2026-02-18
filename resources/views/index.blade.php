@@ -819,6 +819,17 @@
                 const valueHtml = `<div style="white-space:pre-wrap;word-break:break-all;font-family:var(--font-mono);font-size:12px;line-height:1.6;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid rgba(255,255,255,0.05)">${escapeHtml(prettyValue)}</div>`;
 
                 resultEl.innerHTML = metaHtml + valueHtml;
+
+                // Set the input to the type-appropriate command
+                const typeCommands = {
+                    'string': `GET ${key}`,
+                    'list': `LRANGE ${key} 0 -1`,
+                    'set': `SMEMBERS ${key}`,
+                    'zset': `ZRANGE ${key} 0 -1 WITHSCORES`,
+                    'hash': `HGETALL ${key}`,
+                    'stream': `XRANGE ${key} - +`,
+                };
+                input.value = typeCommands[data.type] || `GET ${key}`;
             }
         } catch (err) {
             resultEl.className = 'output-result error';

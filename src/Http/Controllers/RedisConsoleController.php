@@ -101,7 +101,7 @@ class RedisConsoleController extends Controller
             // Get types for each key
             $keysWithTypes = [];
             foreach ($keys as $key) {
-                $type = $redis->client()->rawCommand('TYPE', $key);
+                $type = $this->resolveType($redis->client(), $key);
                 $ttl = $redis->client()->rawCommand('TTL', $key);
                 $keysWithTypes[] = [
                     'key' => $key,
@@ -166,7 +166,7 @@ class RedisConsoleController extends Controller
 
             $client = $redis->client();
 
-            $type = $client->rawCommand('TYPE', $key);
+            $type = $this->resolveType($client, $key);
             $ttl = $client->rawCommand('TTL', $key);
             $encoding = $client->rawCommand('OBJECT', 'ENCODING', $key);
 
@@ -232,6 +232,25 @@ class RedisConsoleController extends Controller
         }
 
         return $connection;
+    }
+
+    /**
+     * Resolve the Redis type for a key using phpredis native type() method.
+     * rawCommand('TYPE') returns a status reply (boolean), not a usable string.
+     */
+    protected function resolveType(object $client, string $key): string
+    {
+        $typeInt = $client->type($key);
+
+        return match ($typeInt) {
+            1 => 'string',  // Redis::REDIS_STRING
+            2 => 'set',     // Redis::REDIS_SET
+            3 => 'list',    // Redis::REDIS_LIST
+            4 => 'zset',    // Redis::REDIS_ZSET
+            5 => 'hash',    // Redis::REDIS_HASH
+            6 => 'stream',  // Redis::REDIS_STREAM
+            default => 'none',
+        };
     }
 
     protected function parseCommand(string $raw): array
