@@ -784,22 +784,41 @@
                 resultEl.className = 'output-result error';
                 resultEl.textContent = `(error) ${data.error}`;
             } else {
-                const meta = [];
-                meta.push(`Type: ${data.type}`);
-                if (data.encoding) meta.push(`Encoding: ${data.encoding}`);
+                // Build metadata section
+                let ttlStr = '';
                 if (data.ttl === -1) {
-                    meta.push('TTL: ∞ (no expiry)');
+                    ttlStr = '∞ (no expiry)';
                 } else if (data.ttl === -2) {
-                    meta.push('TTL: key does not exist');
+                    ttlStr = 'key does not exist';
                 } else {
-                    meta.push(`TTL: ${Number(data.ttl).toLocaleString()}s`);
-                    if (data.expires_at) meta.push(`Expires at: ${data.expires_at}`);
+                    ttlStr = `${Number(data.ttl).toLocaleString()}s`;
+                    if (data.expires_at) ttlStr += ` → ${data.expires_at}`;
                 }
 
-                const valueStr = formatOutput(data.value, typeof data.value);
-                resultEl.innerHTML =
-                    `<span style="color:var(--text-muted);font-size:11px;display:block;margin-bottom:6px">${meta.join('  ·  ')}</span>` +
-                    escapeHtml(valueStr);
+                const metaHtml = `<div style="color:var(--text-muted);font-size:11px;margin-bottom:8px;line-height:1.8">` +
+                    `<span style="color:var(--accent)">Key:</span> ${escapeHtml(data.key)}` +
+                    `  ·  <span style="color:var(--accent)">Type:</span> ${escapeHtml(String(data.type))}` +
+                    (data.encoding ? `  ·  <span style="color:var(--accent)">Encoding:</span> ${escapeHtml(String(data.encoding))}` : '') +
+                    `  ·  <span style="color:var(--accent)">TTL:</span> ${escapeHtml(ttlStr)}` +
+                    `</div>`;
+
+                // Format value — try to pretty-print JSON/serialized data
+                let valueStr = formatOutput(data.value, typeof data.value);
+                let prettyValue = valueStr;
+
+                // Try to parse as JSON for pretty-printing
+                if (typeof data.value === 'string') {
+                    try {
+                        const parsed = JSON.parse(data.value);
+                        prettyValue = JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        prettyValue = valueStr;
+                    }
+                }
+
+                const valueHtml = `<div style="white-space:pre-wrap;word-break:break-all;font-family:var(--font-mono);font-size:12px;line-height:1.6;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid rgba(255,255,255,0.05)">${escapeHtml(prettyValue)}</div>`;
+
+                resultEl.innerHTML = metaHtml + valueHtml;
             }
         } catch (err) {
             resultEl.className = 'output-result error';
