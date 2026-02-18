@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Pawell67\RedisExplorer\Tests\Unit;
+namespace Pawell67\RedisConsole\Tests\Unit;
 
-use Pawell67\RedisExplorer\Http\Controllers\RedisExplorerController;
+use Pawell67\RedisConsole\Http\Controllers\RedisConsoleController;
 use PHPUnit\Framework\TestCase;
 
 class CommandParserTest extends TestCase
 {
-    private RedisExplorerController $controller;
+    private RedisConsoleController $controller;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         // Use reflection to access the protected parseCommand method
-        $this->controller = new class () extends RedisExplorerController {
+        $this->controller = new class () extends RedisConsoleController {
             public function publicParseCommand(string $raw): array
             {
                 return $this->parseCommand($raw);

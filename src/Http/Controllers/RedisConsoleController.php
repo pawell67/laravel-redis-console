@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pawell67\RedisExplorer\Http\Controllers;
+namespace Pawell67\RedisConsole\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,20 +10,20 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Redis;
 use Exception;
 
-class RedisExplorerController extends Controller
+class RedisConsoleController extends Controller
 {
     public function index()
     {
-        return view('redis-explorer::index', [
+        return view('redis-console::index', [
             'connections' => array_keys(config('database.redis', [])),
-            'maxDb' => config('redis-explorer.max_db', 15),
+            'maxDb' => config('redis-console.max_db', 15),
         ]);
     }
 
     public function execute(Request $request): JsonResponse
     {
         $raw = trim((string) $request->input('command', ''));
-        $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $connection = $request->input('connection', config('redis-console.connection', 'default'));
         $db = $request->input('db');
 
         if (empty($raw)) {
@@ -33,15 +33,22 @@ class RedisExplorerController extends Controller
         $parts = $this->parseCommand($raw);
         $cmd = strtoupper(array_shift($parts));
 
-        if (in_array($cmd, config('redis-explorer.blocked_commands', []))) {
+        if (in_array($cmd, config('redis-console.blocked_commands', []))) {
             return response()->json(['error' => "Command '{$cmd}' is blocked."], 403);
         }
 
-        $isDangerous = in_array($cmd, config('redis-explorer.dangerous_commands', []));
+        if (config('redis-console.read_only', false)) {
+            $allowed = array_map('strtoupper', config('redis-console.read_only_commands', []));
+            if (! in_array($cmd, $allowed)) {
+                return response()->json(['error' => "Command '{$cmd}' is not allowed in read-only mode."], 403);
+            }
+        }
+
+        $isDangerous = in_array($cmd, config('redis-console.dangerous_commands', []));
 
         try {
             $redis = $this->getRedis($connection, $db);
-            $result = $redis->command($cmd, $parts);
+            $result = $redis->client()->rawCommand($cmd, ...$parts);
 
             return response()->json([
                 'command' => $raw,
@@ -59,12 +66,12 @@ class RedisExplorerController extends Controller
 
     public function info(Request $request): JsonResponse
     {
-        $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $connection = $request->input('connection', config('redis-console.connection', 'default'));
         $db = $request->input('db');
 
         try {
             $redis = $this->getRedis($connection, $db);
-            $info = $redis->command('INFO');
+            $info = $redis->client()->rawCommand('INFO');
 
             return response()->json([
                 'info' => $info,
@@ -76,7 +83,7 @@ class RedisExplorerController extends Controller
 
     public function keys(Request $request): JsonResponse
     {
-        $connection = $request->input('connection', config('redis-explorer.connection', 'default'));
+        $connection = $request->input('connection', config('redis-console.connection', 'default'));
         $db = $request->input('db');
         $pattern = $request->input('pattern', '*');
         $cursor = $request->input('cursor', '0');
@@ -111,6 +118,55 @@ class RedisExplorerController extends Controller
         }
     }
 
+    public function inspect(Request $request): JsonResponse
+    {
+        $key = $request->input('key', '');
+        $connection = $request->input('connection', config('redis-console.connection', 'default'));
+        $db = $request->input('db');
+
+        if (empty($key)) {
+            return response()->json(['error' => 'No key provided.'], 400);
+        }
+
+        try {
+            $redis = $this->getRedis($connection, $db);
+
+            $client = $redis->client();
+
+            $type = $client->rawCommand('TYPE', $key);
+            $ttl = $client->rawCommand('TTL', $key);
+            $encoding = $client->rawCommand('OBJECT', 'ENCODING', $key);
+
+            // Get value based on type
+            $value = match ($type) {
+                'string' => $client->rawCommand('GET', $key),
+                'list' => $client->rawCommand('LRANGE', $key, '0', '99'),
+                'set' => $client->rawCommand('SMEMBERS', $key),
+                'zset' => $client->rawCommand('ZRANGE', $key, '0', '99', 'WITHSCORES'),
+                'hash' => $client->rawCommand('HGETALL', $key),
+                'stream' => $client->rawCommand('XRANGE', $key, '-', '+', 'COUNT', '20'),
+                default => '(unknown type)',
+            };
+
+            // Calculate expiry timestamp
+            $expiresAt = null;
+            if ($ttl > 0) {
+                $expiresAt = now()->addSeconds($ttl)->toDateTimeString();
+            }
+
+            return response()->json([
+                'key' => $key,
+                'type' => $type,
+                'value' => $this->formatResult($value),
+                'ttl' => $ttl,
+                'expires_at' => $expiresAt,
+                'encoding' => $encoding,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Get a Redis connection, optionally selecting a specific DB index.
      */
@@ -119,8 +175,8 @@ class RedisExplorerController extends Controller
         $redis = Redis::connection($connection);
 
         if ($db !== null && $db !== '') {
-            $dbIndex = max(0, min((int) $db, config('redis-explorer.max_db', 15)));
-            $redis->command('SELECT', [$dbIndex]);
+            $dbIndex = max(0, min((int) $db, config('redis-console.max_db', 15)));
+            $redis->client()->rawCommand('SELECT', $dbIndex);
         }
 
         return $redis;

@@ -6,25 +6,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Redis Explorer Path
+    | Redis Console Path
     |--------------------------------------------------------------------------
     |
-    | This is the URI path where Redis Explorer will be accessible from.
+    | This is the URI path where Redis Console will be accessible from.
     |
     */
-    'path' => env('REDIS_EXPLORER_PATH', 'redis-explorer'),
+    'path' => env('REDIS_CONSOLE_PATH', 'redis-console'),
 
     /*
     |--------------------------------------------------------------------------
     | Route Middleware
     |--------------------------------------------------------------------------
     |
-    | These middleware will be assigned to every Redis Explorer route.
+    | These middleware will be assigned to every Redis Console route.
     | You may add your own middleware to this list, for example
     | to restrict access in production environments.
     |
     */
-    'middleware' => explode(',', env('REDIS_EXPLORER_MIDDLEWARE', 'web')),
+    'middleware' => explode(',', env('REDIS_CONSOLE_MIDDLEWARE', 'web')),
 
     /*
     |--------------------------------------------------------------------------
@@ -35,7 +35,7 @@ return [
     | connection from your database.php config.
     |
     */
-    'connection' => env('REDIS_EXPLORER_CONNECTION', 'default'),
+    'connection' => env('REDIS_CONSOLE_CONNECTION', 'default'),
 
     /*
     |--------------------------------------------------------------------------
@@ -46,7 +46,42 @@ return [
     | Standard Redis supports 0-15 (16 databases).
     |
     */
-    'max_db' => (int) env('REDIS_EXPLORER_MAX_DB', 15),
+    'max_db' => (int) env('REDIS_CONSOLE_MAX_DB', 15),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Read-Only Mode
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, all write/modify commands are blocked. Only read commands
+    | like GET, MGET, KEYS, SCAN, TYPE, TTL, INFO, DBSIZE, etc. are allowed.
+    |
+    */
+    'read_only' => (bool) env('REDIS_CONSOLE_READ_ONLY', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Read-Only Allowed Commands
+    |--------------------------------------------------------------------------
+    |
+    | Commands permitted in read-only mode. Any command not in this list
+    | will be blocked when read_only is true.
+    |
+    */
+    'read_only_commands' => [
+        'GET', 'MGET', 'STRLEN', 'GETRANGE', 'SUBSTR',
+        'KEYS', 'SCAN', 'EXISTS', 'TYPE', 'TTL', 'PTTL', 'OBJECT',
+        'RANDOMKEY', 'DBSIZE', 'DUMP',
+        'LLEN', 'LRANGE', 'LINDEX', 'LPOS',
+        'SCARD', 'SMEMBERS', 'SISMEMBER', 'SMISMEMBER', 'SRANDMEMBER',
+        'ZCARD', 'ZCOUNT', 'ZRANGE', 'ZRANGEBYSCORE', 'ZRANK', 'ZSCORE',
+        'ZREVRANGE', 'ZREVRANGEBYSCORE', 'ZREVRANK', 'ZLEXCOUNT',
+        'HGET', 'HMGET', 'HGETALL', 'HKEYS', 'HVALS', 'HLEN', 'HEXISTS', 'HSCAN',
+        'XLEN', 'XRANGE', 'XREVRANGE', 'XINFO', 'XREAD',
+        'PING', 'ECHO', 'INFO', 'CONFIG GET', 'SLOWLOG', 'TIME',
+        'CLIENT LIST', 'CLIENT INFO', 'CLIENT GETNAME',
+        'MEMORY USAGE', 'DEBUG OBJECT',
+    ],
 
     /*
     |--------------------------------------------------------------------------

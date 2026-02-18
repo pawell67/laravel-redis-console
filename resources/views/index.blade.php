@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Redis Explorer</title>
+    <title>Redis Console</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -436,6 +436,7 @@
             font-size: 20px;
             font-weight: 600;
             color: var(--text-primary);
+            word-break: break-all;
         }
         .info-card-sub {
             font-size: 11px;
@@ -467,7 +468,7 @@
         <header class="header">
             <div class="header-brand">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                Redis Explorer
+                Redis Console
                 <span class="header-badge">v1.0</span>
             </div>
             <div class="header-actions">
@@ -475,7 +476,7 @@
                 <select class="conn-select" id="connection">
                     @foreach($connections as $conn)
                         @if(!in_array($conn, ['client', 'options']))
-                            <option value="{{ $conn }}" {{ $conn === config('redis-explorer.connection', 'default') ? 'selected' : '' }}>
+                            <option value="{{ $conn }}" {{ $conn === config('redis-console.connection', 'default') ? 'selected' : '' }}>
                                 {{ $conn }}
                             </option>
                         @endif
@@ -558,11 +559,11 @@
     </div>
 
     <script>
-    const baseUrl = '{{ url(config("redis-explorer.path", "redis-explorer")) }}';
+    const baseUrl = '{{ url(config("redis-console.path", "redis-console")) }}';
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
     // State
-    let history = JSON.parse(localStorage.getItem('redis-explorer-history') || '[]');
+    let history = JSON.parse(localStorage.getItem('redis-console-history') || '[]');
     let historyIndex = -1;
     let scanCursor = '0';
     let allKeys = [];
@@ -598,7 +599,7 @@
         if (history[0] !== cmd) {
             history.unshift(cmd);
             if (history.length > 50) history.pop();
-            localStorage.setItem('redis-explorer-history', JSON.stringify(history));
+            localStorage.setItem('redis-console-history', JSON.stringify(history));
         }
         historyIndex = -1;
         input.value = '';
@@ -726,12 +727,64 @@
         `).join('');
     }
 
-    function inspectKey(key) {
-        const cmd = `GET ${key}`;
-        input.value = cmd;
-        runCommand();
-        input.value = cmd;
+    async function inspectKey(key) {
+        const conn = document.getElementById('connection').value;
+        const db = document.getElementById('db-index').value;
+
+        input.value = `GET ${key}`;
         input.focus();
+
+        emptyState?.remove();
+
+        const entry = document.createElement('div');
+        entry.className = 'output-entry';
+        entry.innerHTML = `
+            <div class="output-cmd"><span>›</span> INSPECT ${escapeHtml(key)}</div>
+            <div class="output-result"><span class="spinner"></span> Loading...</div>
+        `;
+        outputArea.appendChild(entry);
+        outputArea.scrollTop = outputArea.scrollHeight;
+
+        const resultEl = entry.querySelector('.output-result');
+
+        try {
+            const resp = await fetch(`${baseUrl}/inspect?key=${encodeURIComponent(key)}&connection=${conn}&db=${db}`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            const data = await resp.json();
+
+            if (data.error) {
+                resultEl.className = 'output-result error';
+                resultEl.textContent = `(error) ${data.error}`;
+            } else {
+                const meta = [];
+                meta.push(`Type: ${data.type}`);
+                if (data.encoding) meta.push(`Encoding: ${data.encoding}`);
+                if (data.ttl === -1) {
+                    meta.push('TTL: ∞ (no expiry)');
+                } else if (data.ttl === -2) {
+                    meta.push('TTL: key does not exist');
+                } else {
+                    meta.push(`TTL: ${Number(data.ttl).toLocaleString()}s`);
+                    if (data.expires_at) meta.push(`Expires at: ${data.expires_at}`);
+                }
+
+                const valueStr = formatOutput(data.value, typeof data.value);
+                resultEl.innerHTML =
+                    `<span style="color:var(--text-muted);font-size:11px;display:block;margin-bottom:6px">${meta.join('  ·  ')}</span>` +
+                    escapeHtml(valueStr);
+            }
+        } catch (err) {
+            resultEl.className = 'output-result error';
+            resultEl.textContent = `(network error) ${err.message}`;
+        }
+
+        const ts = document.createElement('div');
+        ts.className = 'output-timestamp';
+        ts.textContent = new Date().toLocaleTimeString();
+        entry.appendChild(ts);
+
+        outputArea.scrollTop = outputArea.scrollHeight;
     }
 
     // ---- Tabs ----
@@ -781,10 +834,12 @@
             if (info.role) add('Role', info.role);
             if (info.os) add('OS', info.os);
 
-            // DB info
+            // DB info — only match db0..db15, skip distribution stats
             for (const [k, v] of Object.entries(info)) {
-                if (k.startsWith('db')) {
-                    add(`Database ${k.replace('db', '')}`, v);
+                if (/^db\d+$/.test(k)) {
+                    const dbNum = k.replace('db', '');
+                    const parsed = parseDbInfo(v);
+                    add(`Database ${dbNum}`, `${parsed.keys} keys`, parsed.sub);
                 }
             }
 
@@ -803,6 +858,27 @@
             if (key) result[key] = val.join(':');
         });
         return result;
+    }
+
+    function parseDbInfo(str) {
+        // Parse "keys=112,expires=110,avg_ttl=51546948,subexpiry=0"
+        const parts = {};
+        str.split(',').forEach(p => {
+            const [k, v] = p.split('=');
+            if (k) parts[k.trim()] = v ? v.trim() : '';
+        });
+
+        const subs = [];
+        if (parts.expires !== undefined) subs.push(`${Number(parts.expires).toLocaleString()} expires`);
+        if (parts.avg_ttl !== undefined) {
+            const ttlSec = Math.round(Number(parts.avg_ttl) / 1000);
+            subs.push(`avg TTL ${ttlSec.toLocaleString()}s`);
+        }
+
+        return {
+            keys: Number(parts.keys || 0).toLocaleString(),
+            sub: subs.join(' · '),
+        };
     }
 
     // Key pattern enter

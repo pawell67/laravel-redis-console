@@ -1,6 +1,6 @@
 {
-    "name": "pawell67/laravel-redis-explorer",
-    "description": "A beautiful web-based Redis Explorer for Laravel. Browse keys, run commands, and monitor your Redis instance.",
+    "name": "pawell67/laravel-redis-console",
+    "description": "A beautiful web-based Redis Console for Laravel. Browse keys, run commands, and monitor your Redis instance.",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -19,18 +19,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Pawell67\\RedisExplorer\\": "src/"
+            "Pawell67\\RedisConsole\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Pawell67\\RedisExplorer\\Tests\\": "tests/"
+            "Pawell67\\RedisConsole\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Pawell67\\RedisExplorer\\RedisExplorerServiceProvider"
+                "Pawell67\\RedisConsole\\RedisConsoleServiceProvider"
             ]
         }
     },

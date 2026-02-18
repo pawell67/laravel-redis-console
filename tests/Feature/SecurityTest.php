@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Pawell67\RedisExplorer\Tests\Feature;
+namespace Pawell67\RedisConsole\Tests\Feature;
 
-use Pawell67\RedisExplorer\Tests\TestCase;
+use Pawell67\RedisConsole\Tests\TestCase;
 
 class SecurityTest extends TestCase
 {
@@ -14,7 +14,7 @@ class SecurityTest extends TestCase
 
     public function test_blocked_command_shutdown_returns_403(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'SHUTDOWN',
         ]);
 
@@ -24,7 +24,7 @@ class SecurityTest extends TestCase
 
     public function test_blocked_command_debug_returns_403(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'DEBUG SLEEP 0',
         ]);
 
@@ -34,7 +34,7 @@ class SecurityTest extends TestCase
 
     public function test_blocked_commands_are_case_insensitive(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'shutdown',
         ]);
 
@@ -44,9 +44,9 @@ class SecurityTest extends TestCase
     public function test_custom_blocked_command_is_enforced(): void
     {
         // Dynamically add EVAL to the blocked list
-        config(['redis-explorer.blocked_commands' => ['SHUTDOWN', 'DEBUG', 'EVAL']]);
+        config(['redis-console.blocked_commands' => ['SHUTDOWN', 'DEBUG', 'EVAL']]);
 
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'EVAL "return 1" 0',
         ]);
 
@@ -60,7 +60,7 @@ class SecurityTest extends TestCase
 
     public function test_dangerous_command_is_flagged(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'FLUSHDB',
         ]);
 
@@ -72,7 +72,7 @@ class SecurityTest extends TestCase
 
     public function test_safe_command_is_not_flagged_dangerous(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'PING',
         ]);
 
@@ -86,7 +86,7 @@ class SecurityTest extends TestCase
 
     public function test_empty_command_returns_400(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => '',
         ]);
 
@@ -96,7 +96,7 @@ class SecurityTest extends TestCase
 
     public function test_whitespace_only_command_returns_400(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => '   ',
         ]);
 
@@ -105,7 +105,7 @@ class SecurityTest extends TestCase
 
     public function test_missing_command_field_returns_400(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'connection' => 'default',
         ]);
 
@@ -118,7 +118,7 @@ class SecurityTest extends TestCase
 
     public function test_negative_db_index_is_clamped_to_zero(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'PING',
             'db' => '-5',
         ]);
@@ -129,7 +129,7 @@ class SecurityTest extends TestCase
 
     public function test_excessive_db_index_is_clamped_to_max(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'PING',
             'db' => '999',
         ]);
@@ -140,7 +140,7 @@ class SecurityTest extends TestCase
 
     public function test_non_numeric_db_index_is_treated_as_zero(): void
     {
-        $response = $this->postJson('/redis-explorer/execute', [
+        $response = $this->postJson('/redis-console/execute', [
             'command' => 'PING',
             'db' => 'abc',
         ]);
@@ -155,7 +155,7 @@ class SecurityTest extends TestCase
 
     public function test_execute_requires_post_method(): void
     {
-        $response = $this->getJson('/redis-explorer/execute');
+        $response = $this->getJson('/redis-console/execute');
 
         $response->assertStatus(405); // Method Not Allowed
     }
@@ -163,7 +163,7 @@ class SecurityTest extends TestCase
     public function test_middleware_config_is_applied(): void
     {
         // Verify that the config value is respected by the service provider
-        $middleware = config('redis-explorer.middleware');
+        $middleware = config('redis-console.middleware');
 
         $this->assertIsArray($middleware);
         $this->assertContains('web', $middleware);

@@ -3,9 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
-use Pawell67\RedisExplorer\Http\Controllers\RedisExplorerController;
+use Pawell67\RedisConsole\Http\Controllers\RedisConsoleController;
 
-Route::get('/', [RedisExplorerController::class, 'index'])->name('redis-explorer.index');
-Route::post('/execute', [RedisExplorerController::class, 'execute'])->name('redis-explorer.execute');
-Route::get('/info', [RedisExplorerController::class, 'info'])->name('redis-explorer.info');
-Route::get('/keys', [RedisExplorerController::class, 'keys'])->name('redis-explorer.keys');
+Route::get('/', [RedisConsoleController::class, 'index'])->name('redis-console.index');
+Route::post('/execute', [RedisConsoleController::class, 'execute'])->name('redis-console.execute');
+Route::get('/info', [RedisConsoleController::class, 'info'])->name('redis-console.info');
+Route::get('/keys', [RedisConsoleController::class, 'keys'])->name('redis-console.keys');
+Route::get('/inspect', [RedisConsoleController::class, 'inspect'])->name('redis-console.inspect');

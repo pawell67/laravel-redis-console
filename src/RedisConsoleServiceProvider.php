@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Pawell67\RedisExplorer;
+namespace Pawell67\RedisConsole;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
-class RedisExplorerServiceProvider extends ServiceProvider
+class RedisConsoleServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'redis-explorer');
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'redis-console');
 
         $this->publishes([
-            __DIR__ . '/../config/redis-explorer.php' => config_path('redis-explorer.php'),
-        ], 'redis-explorer-config');
+            __DIR__ . '/../config/redis-console.php' => config_path('redis-console.php'),
+        ], 'redis-console-config');
 
         $this->registerRoutes();
     }
 
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/redis-explorer.php', 'redis-explorer');
+        $this->mergeConfigFrom(__DIR__ . '/../config/redis-console.php', 'redis-console');
     }
 
     protected function registerRoutes(): void
@@ -35,8 +35,8 @@ class RedisExplorerServiceProvider extends ServiceProvider
     protected function routeConfiguration(): array
     {
         return [
-            'prefix' => config('redis-explorer.path', 'redis-explorer'),
-            'middleware' => config('redis-explorer.middleware', ['web']),
+            'prefix' => config('redis-console.path', 'redis-console'),
+            'middleware' => config('redis-console.middleware', ['web']),
         ];
     }
 }
