@@ -23,7 +23,7 @@ class RedisConsoleController extends Controller
     public function execute(Request $request): JsonResponse
     {
         $raw = trim((string) $request->input('command', ''));
-        $connection = $request->input('connection', config('redis-console.connection', 'default'));
+        $connection = $this->resolveConnection($request->input('connection'));
         $db = $request->input('db');
 
         if (empty($raw)) {
@@ -39,7 +39,9 @@ class RedisConsoleController extends Controller
 
         if (config('redis-console.read_only', false)) {
             $allowed = array_map('strtoupper', config('redis-console.read_only_commands', []));
-            if (! in_array($cmd, $allowed)) {
+            // Check single-word command first, then compound (e.g. "CONFIG GET")
+            $compoundCmd = isset($parts[0]) ? $cmd . ' ' . strtoupper($parts[0]) : null;
+            if (! in_array($cmd, $allowed) && ($compoundCmd === null || ! in_array($compoundCmd, $allowed))) {
                 return response()->json(['error' => "Command '{$cmd}' is not allowed in read-only mode."], 403);
             }
         }
@@ -66,7 +68,7 @@ class RedisConsoleController extends Controller
 
     public function info(Request $request): JsonResponse
     {
-        $connection = $request->input('connection', config('redis-console.connection', 'default'));
+        $connection = $this->resolveConnection($request->input('connection'));
         $db = $request->input('db');
 
         try {
@@ -83,7 +85,7 @@ class RedisConsoleController extends Controller
 
     public function keys(Request $request): JsonResponse
     {
-        $connection = $request->input('connection', config('redis-console.connection', 'default'));
+        $connection = $this->resolveConnection($request->input('connection'));
         $db = $request->input('db');
         $pattern = $request->input('pattern', '*');
         $cursor = $request->input('cursor', '0');
@@ -118,10 +120,41 @@ class RedisConsoleController extends Controller
         }
     }
 
+    public function count(Request $request): JsonResponse
+    {
+        $connection = $this->resolveConnection($request->input('connection'));
+        $db = $request->input('db');
+        $pattern = $request->input('pattern', '*');
+
+        try {
+            $redis = $this->getRedis($connection, $db);
+            $client = $redis->client();
+            $cursor = '0';
+            $total = 0;
+            $maxIterations = 1000; // Safety limit
+
+            do {
+                $result = $client->rawCommand('SCAN', $cursor, 'MATCH', $pattern, 'COUNT', 500);
+                $cursor = $result[0] ?? '0';
+                $keys = $result[1] ?? [];
+                $total += count($keys);
+                $maxIterations--;
+            } while (($cursor !== '0' && $cursor !== 0) && $maxIterations > 0);
+
+            return response()->json([
+                'pattern' => $pattern,
+                'count' => $total,
+                'complete' => $maxIterations > 0,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function inspect(Request $request): JsonResponse
     {
         $key = $request->input('key', '');
-        $connection = $request->input('connection', config('redis-console.connection', 'default'));
+        $connection = $this->resolveConnection($request->input('connection'));
         $db = $request->input('db');
 
         if (empty($key)) {
@@ -180,6 +213,25 @@ class RedisConsoleController extends Controller
         }
 
         return $redis;
+    }
+
+    /**
+     * Validate and resolve the connection name against configured connections.
+     */
+    protected function resolveConnection(?string $connection): string
+    {
+        $default = config('redis-console.connection', 'default');
+        $connection = $connection ?: $default;
+
+        // Validate against configured Redis connections
+        $configured = array_keys(config('database.redis', []));
+        $allowed = array_filter($configured, fn ($c) => ! in_array($c, ['client', 'options']));
+
+        if (! in_array($connection, $allowed)) {
+            return $default;
+        }
+
+        return $connection;
     }
 
     protected function parseCommand(string $raw): array

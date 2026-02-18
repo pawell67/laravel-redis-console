@@ -168,4 +168,130 @@ class SecurityTest extends TestCase
         $this->assertIsArray($middleware);
         $this->assertContains('web', $middleware);
     }
+
+    // -------------------------------------------------------
+    // Script Execution Prevention
+    // -------------------------------------------------------
+
+    public function test_eval_command_is_blocked(): void
+    {
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'EVAL "return 1" 0',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_evalsha_command_is_blocked(): void
+    {
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'EVALSHA abc123 0',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_script_command_is_blocked(): void
+    {
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'SCRIPT LOAD "return 1"',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_function_command_is_blocked(): void
+    {
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'FUNCTION LIST',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    // -------------------------------------------------------
+    // Read-Only Mode
+    // -------------------------------------------------------
+
+    public function test_read_only_mode_allows_get(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'GET somekey',
+        ]);
+
+        $response->assertOk();
+    }
+
+    public function test_read_only_mode_blocks_set(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'SET mykey myvalue',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertStringContainsString('not allowed in read-only mode', $response->json('error'));
+    }
+
+    public function test_read_only_mode_blocks_del(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'DEL somekey',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_read_only_mode_blocks_flushdb(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'FLUSHDB',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_read_only_allows_info_command(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'INFO',
+        ]);
+
+        $response->assertOk();
+    }
+
+    public function test_read_only_allows_ping_command(): void
+    {
+        config(['redis-console.read_only' => true]);
+
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'PING',
+        ]);
+
+        $response->assertOk();
+    }
+
+    // -------------------------------------------------------
+    // Connection Validation
+    // -------------------------------------------------------
+
+    public function test_invalid_connection_falls_back_to_default(): void
+    {
+        $response = $this->postJson('/redis-console/execute', [
+            'command' => 'PING',
+            'connection' => 'totally_fake_connection',
+        ]);
+
+        // Should not error — falls back to default connection
+        $response->assertOk();
+    }
 }

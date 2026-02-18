@@ -32,10 +32,10 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('redis-console.connection', 'default');
         $app['config']->set('redis-console.max_db', 15);
         $app['config']->set('redis-console.read_only', false);
-        $app['config']->set('redis-console.blocked_commands', ['SHUTDOWN', 'DEBUG']);
+        $app['config']->set('redis-console.blocked_commands', ['SHUTDOWN', 'DEBUG', 'EVAL', 'EVALSHA', 'SCRIPT', 'FUNCTION']);
         $app['config']->set('redis-console.dangerous_commands', [
             'FLUSHDB', 'FLUSHALL', 'DEL', 'UNLINK',
-            'CONFIG', 'SLAVEOF', 'REPLICAOF', 'CLUSTER',
+            'CONFIG', 'SLAVEOF', 'REPLICAOF', 'CLUSTER', 'SELECT',
         ]);
     }
 }

@@ -502,6 +502,7 @@
                 </div>
                 <div class="key-actions">
                     <button class="btn-sm active" onclick="scanKeys()" id="btn-scan">Scan</button>
+                    <button class="btn-sm" onclick="countKeys()" id="btn-count">Count</button>
                     <button class="btn-sm" onclick="refreshKeys()" id="btn-refresh">Refresh</button>
                 </div>
             </div>
@@ -680,6 +681,32 @@
 
     function refreshKeys() {
         scanKeys();
+    }
+
+    async function countKeys() {
+        const pattern = document.getElementById('key-pattern').value || '*';
+        const conn = document.getElementById('connection').value;
+        const db = document.getElementById('db-index').value;
+        const countEl = document.getElementById('key-count');
+
+        countEl.textContent = 'Counting...';
+
+        try {
+            const resp = await fetch(`${baseUrl}/count?pattern=${encodeURIComponent(pattern)}&connection=${conn}&db=${db}`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            const data = await resp.json();
+
+            if (data.error) {
+                countEl.textContent = 'Error';
+                return;
+            }
+
+            const suffix = data.complete ? '' : '+';
+            countEl.textContent = `${data.count.toLocaleString()}${suffix} keys matching "${pattern}"`;
+        } catch (err) {
+            countEl.textContent = 'Error counting';
+        }
     }
 
     async function scanMore() {

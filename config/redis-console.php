@@ -102,6 +102,7 @@ return [
         'SLAVEOF',
         'REPLICAOF',
         'CLUSTER',
+        'SELECT',
     ],
 
     /*
@@ -115,6 +116,10 @@ return [
     'blocked_commands' => [
         'SHUTDOWN',
         'DEBUG',
+        'EVAL',
+        'EVALSHA',
+        'SCRIPT',
+        'FUNCTION',
     ],
 
 ];
