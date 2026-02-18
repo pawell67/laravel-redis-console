@@ -414,10 +414,22 @@
         /* Info panel */
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 12px;
             padding: 16px 24px;
         }
+        .info-section {
+            grid-column: 1 / -1;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            padding: 8px 0 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+        .info-section:first-child { padding-top: 0; }
         .info-card {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
@@ -548,7 +560,7 @@
             </div>
 
             <!-- Info Tab -->
-            <div id="tab-info" style="display:none;flex:1;overflow-y:auto">
+            <div id="tab-info" style="display:none;overflow-y:auto;flex:1">
                 <div class="info-grid" id="info-grid">
                     <div class="empty-state" style="grid-column:1/-1;padding:60px">
                         <div class="spinner"></div>
@@ -758,6 +770,8 @@
         const conn = document.getElementById('connection').value;
         const db = document.getElementById('db-index').value;
 
+        switchTab('cli');
+
         input.value = `GET ${key}`;
         input.focus();
 
@@ -877,23 +891,47 @@
                 cards.push(`<div class="info-card"><div class="info-card-title">${title}</div><div class="info-card-value">${value}</div>${sub ? `<div class="info-card-sub">${sub}</div>` : ''}</div>`);
             };
 
+            const section = (title) => {
+                cards.push(`<div class="info-section">${title}</div>`);
+            };
+
+            section('Server');
             if (info.redis_version) add('Redis Version', info.redis_version);
+            if (info.os) add('OS', info.os);
             if (info.uptime_in_days !== undefined) add('Uptime', `${info.uptime_in_days}d`, `${info.uptime_in_seconds || 0}s total`);
-            if (info.connected_clients) add('Connected Clients', info.connected_clients);
+            if (info.role) add('Role', info.role);
+            if (info.tcp_port) add('Port', info.tcp_port);
+            if (info.executable) add('Executable', info.executable.split('/').pop());
+            if (info.config_file) add('Config', info.config_file.split('/').pop() || '(none)');
+            if (info.redis_mode) add('Mode', info.redis_mode);
+
+            section('Memory');
             if (info.used_memory_human) add('Memory Used', info.used_memory_human, info.used_memory_peak_human ? `Peak: ${info.used_memory_peak_human}` : '');
+            if (info.maxmemory_human && info.maxmemory_human !== '0B') add('Max Memory', info.maxmemory_human, info.maxmemory_policy ? `Policy: ${info.maxmemory_policy}` : '');
+            if (info.mem_fragmentation_ratio) add('Fragmentation Ratio', info.mem_fragmentation_ratio);
+
+            section('Clients & Connections');
+            if (info.connected_clients) add('Connected Clients', info.connected_clients, info.blocked_clients ? `${info.blocked_clients} blocked` : '');
+            if (info.total_connections_received) add('Total Connections', Number(info.total_connections_received).toLocaleString());
+            if (info.rejected_connections !== undefined) add('Rejected', Number(info.rejected_connections).toLocaleString());
+
+            section('Stats');
             if (info.total_commands_processed) add('Commands Processed', Number(info.total_commands_processed).toLocaleString());
+            if (info.instantaneous_ops_per_sec !== undefined) add('Ops/sec', Number(info.instantaneous_ops_per_sec).toLocaleString());
             if (info.keyspace_hits !== undefined) {
                 const hits = Number(info.keyspace_hits);
                 const misses = Number(info.keyspace_misses || 0);
                 const ratio = hits + misses > 0 ? ((hits / (hits + misses)) * 100).toFixed(1) : '0';
                 add('Hit Rate', `${ratio}%`, `${hits.toLocaleString()} hits / ${misses.toLocaleString()} misses`);
             }
-            if (info.role) add('Role', info.role);
-            if (info.os) add('OS', info.os);
+            if (info.expired_keys !== undefined) add('Expired Keys', Number(info.expired_keys).toLocaleString());
+            if (info.evicted_keys !== undefined) add('Evicted Keys', Number(info.evicted_keys).toLocaleString());
 
-            // DB info — only match db0..db15, skip distribution stats
-            for (const [k, v] of Object.entries(info)) {
-                if (/^db\d+$/.test(k)) {
+            // DB info
+            const dbEntries = Object.entries(info).filter(([k]) => /^db\d+$/.test(k));
+            if (dbEntries.length > 0) {
+                section('Keyspace');
+                for (const [k, v] of dbEntries) {
                     const dbNum = k.replace('db', '');
                     const parsed = parseDbInfo(v);
                     add(`Database ${dbNum}`, `${parsed.keys} keys`, parsed.sub);
