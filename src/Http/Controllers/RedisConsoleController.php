@@ -202,10 +202,15 @@ class RedisConsoleController extends Controller
 
     /**
      * Get a Redis connection, optionally selecting a specific DB index.
+     * Clears the key prefix so all operations use raw keys consistently.
      */
     protected function getRedis(string $connection, ?string $db = null)
     {
         $redis = Redis::connection($connection);
+
+        // Clear the prefix so native phpredis methods (type, etc.)
+        // don't double-prefix keys that SCAN already returns with prefix.
+        $redis->client()->setOption(\Redis::OPT_PREFIX, '');
 
         if ($db !== null && $db !== '') {
             $dbIndex = max(0, min((int) $db, config('redis-console.max_db', 15)));
