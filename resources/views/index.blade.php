@@ -862,7 +862,7 @@
     function switchTab(tab) {
         document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
         document.getElementById('tab-cli').style.display = tab === 'cli' ? 'flex' : 'none';
-        document.getElementById('tab-info').style.display = tab === 'info' ? 'flex' : 'none';
+        document.getElementById('tab-info').style.display = tab === 'info' ? 'block' : 'none';
 
         if (tab === 'info') loadInfo();
     }
